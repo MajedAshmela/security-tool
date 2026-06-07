@@ -17,3 +17,6 @@ Becoming a professional **Cybersecurity Engineer**
 
 ## 📫 Connect With Me
 - GitHub: [MajedAshmela](https://github.com/MajedAshmela)
+- LINKEDIN: [MajedAshmela] (www.linkedin.com/in/majed-ashmela)
+
+
