@@ -5,7 +5,6 @@ Hi, I'm **Majed Ashmela** — a Network & Security Engineer from Libya.
 - 🎓 Bachelor of IT – Networks 
 - 📜 CCNA & CCNP Certified
 - 🐧 Linux – Red Hat System Administration
-- 🛡️ Built a mini SOC environment using MCP as a graduation project
 
 ## 🎯 My Goal
 Becoming a professional **Cybersecurity Engineer**
