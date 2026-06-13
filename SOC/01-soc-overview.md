@@ -49,6 +49,13 @@ They focus on containing the damage, investigating the root cause, and recoverin
 ## MSSP (Managed Security Services Provider)
 An external company that provides security monitoring and management instead of building an internal SOC.
 Small and medium companies often use MSSP because building an internal SOC is expensive.
+## Internal SOC vs MSSP
+| | Internal SOC | MSSP |
+|---|---|---|
+| Who | Company's own team | External company |
+| Cost | Expensive | Cheaper |
+| Knowledge | Deep company knowledge | General knowledge |
+---
 
 ---
 
