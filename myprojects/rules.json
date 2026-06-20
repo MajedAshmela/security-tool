@@ -1,0 +1,28 @@
+{ 
+"prefix_rules":{
+"$2a$":{
+"algorithm": "bcrypt", 
+"confidence" :"high" },
+"$2b$":{
+"algorithm": "bcrypt",
+"confidence" :"high" },
+"$argon2id$":{
+"algorithm": "Argon2id",
+"confidence" :"high" },
+"$1$":{
+"algorithm": "MD5-Crypt",
+"confidence" :"high" },
+"$6$":{
+"algorithm": "SHA-512-Crypt",
+"confidence" :"high" }
+},
+ "hex_rules":{
+"32":["MD5","NTLM","MD4","RIPEMD-128"],
+"40":  ["SHA-1", "RIPEMD-160"],
+"56":  ["SHA-224"],
+"64":  ["SHA-256", "SHA3-256", "BLAKE2s-256"],
+"96":  ["SHA-384"],
+"128": ["SHA-512", "SHA3-512", "BLAKE2b-512"]
+
+}
+}
