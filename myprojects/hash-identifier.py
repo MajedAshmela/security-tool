@@ -18,3 +18,13 @@ def _is_mysql5(text):
 
 def _is_descrypt(text):
     return bool(re.match(r"^[./0-9a-zA-Z]{13}$", text))
+
+def detect_by_prefix(text):
+    for key, value in prefix_rules.items():
+        if text.startswith(key):
+            return HashCandidate(
+                value["algorithm"],
+                value["confidence"],
+                reason="matched prefix"
+            )
+    return None
