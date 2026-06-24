@@ -15,4 +15,4 @@ def _is_hex(text):
 
 def _is_mysql5(text):
  return text.startswith("*") and len(text) == 41 and re.match(r"^[0-9A-F]+$", text[1:])
- ///majed
+ /majed
