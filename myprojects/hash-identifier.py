@@ -28,3 +28,11 @@ def detect_by_prefix(text):
                 reason="matched prefix"
             )
     return None
+def detect_special(text):
+    if _is_mysql5(text):
+        return HashCandidate("mysql5", "high", reason="special shape")
+
+    if _is_descrypt(text):
+        return HashCandidate("descrypt", "medium", reason="special shape")
+
+    return None
