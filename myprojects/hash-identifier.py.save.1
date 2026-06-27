@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+hg,hhgfrom dataclasses import dataclass
 from typing import Literal
 import re
 
@@ -63,13 +63,3 @@ def detect_by_hex_length(text, hex_rules):
             ))
         return results
     return []
-
-def detect_generic_phc(text):
-    parts = text.split("$")
-    if text.startswith("$") and len(parts) >= 3:
-        return HashCandidate(
-            algorithm="PHC",
-            confidence="low",
-            reason="PHC-like format, unknown algorithm"
-        )
-    return None
