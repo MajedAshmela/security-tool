@@ -23,25 +23,26 @@ def _is_netntlm(text):
 def _is_descrypt(text):
     return bool(re.match(r"^[./0-9a-zA-Z]{13}$", text))
 
-def detect_by_prefix(text):
+def detect_by_prefix(text,prefix_rules):
     for key, value in prefix_rules.items():
         if text.startswith(key):
             return HashCandidate(
-                value["algorithm"],
-                value["confidence"],
+                algorihtm=value["algorithm"],
+                confidence=value["confidence"],
                 reason="matched prefix"
             )
     return None
 def detect_special(text):
 
     if _is_netntlm(text):
-        return HashCandidate("NetNTLM", "high", reason="special shape")
+        return HashCandidate(algorithm="NetNTLM", confidence="high", reason="special shape")
 
     if _is_mysql5(text):
-        return HashCandidate("mysql5", "high", reason="special shape")
+        return HashCandidate(algorithm="MySQL5", confidence="high", reason="special shape")
 
     if _is_descrypt(text):
-        return HashCandidate("descrypt", "medium", reason="special shape")
+        return HashCandidate(algorithm="DES-Crypt", confidence="medium", reason="special shape")
 
 
     return None
+
