@@ -27,7 +27,7 @@ def detect_by_prefix(text,prefix_rules):
     for key, value in prefix_rules.items():
         if text.startswith(key):
             return HashCandidate(
-                algorihtm=value["algorithm"],
+                algorithm=value["algorithm"],
                 confidence=value["confidence"],
                 reason="matched prefix"
             )
@@ -46,3 +46,20 @@ def detect_special(text):
 
     return None
 
+def detect_by_hex_length(text, hex_rules):
+    length = str(len(text))
+    if _is_hex(text) and length in hex_rules:
+        algorithms = hex_rules[length]
+        results = []
+        for i, algo in enumerate(algorithms):
+            if i == 0:
+                confidence = "medium"
+            else:
+                confidence = "low"
+            results.append(HashCandidate(
+                algorithm=algo,
+                confidence=confidence,
+                reason="hex length match"
+            ))
+        return results
+    return []
