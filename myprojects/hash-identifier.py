@@ -73,4 +73,3 @@ def detect_generic_phc(text):
             reason="PHC-like format, unknown algorithm"
         )
     return None
-\majed
