@@ -73,3 +73,19 @@ def detect_generic_phc(text):
             reason="PHC-like format, unknown algorithm"
         )
     return None
+
+def detect_shape_hint(text):
+    if text.startswith("eyJ"):
+        return HashCandidate(
+            algorithm="JWT",
+            confidence="low",
+            reason="looks like a JWT, not a hash"
+        )
+    if "+" in text or "/" in text or "=" in text:
+        return HashCandidate(
+            algorithm="Base64",
+            confidence="low",
+            reason="looks like Base64, not a hash"
+        )
+    return None
+    
