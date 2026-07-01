@@ -88,4 +88,32 @@ def detect_shape_hint(text):
             reason="looks like Base64, not a hash"
         )
     return None
+
+def identify(text):
+    with open("rules.json", "r") as f:
+        data = json.load(f)   
+    prefix_rules = data["prefix_rules"]
+    hex_rules = data["hex_rules"]
+
+    result = detect_by_prefix(text, prefix_rules)
+     if result != None:
+     return result
+
+    result = detect_special(text)
+    if result != None:
+        return result  
     
+    results = detect_by_hex_length(text, hex_rules)
+    if results:
+        return results 
+
+    result = detect_generic_phc(text)
+    if result != None:
+        return result
+    
+    result = detect_shape_hint(text)
+    if result != None:
+        return result  
+    
+   return []
+   
