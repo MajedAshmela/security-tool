@@ -14,10 +14,11 @@
 "confidence" :"high" },
 "$6$":{
 "algorithm": "SHA-512-Crypt",
-"confidence" :"high" }
+"confidence" :"high" },
 "$y$":{
 "algorithm": "bcrypt",
 "confidence" :"high" },
+
 "$5$":{
 "algorithm": "SHA-256-Crypt",
 "confidence" :"high" },
