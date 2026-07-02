@@ -72,6 +72,8 @@ def detect_special(text):
 
 
 def detect_by_hex_length(text, hex_rules):
+    # Try to identify a hash by matching its hex length against known rules.
+    # Returns a list of candidates because multiple algorithms can share the same hex length.
     length = str(len(text))
     if _is_hex(text) and length in hex_rules:
         algorithms = hex_rules[length]
@@ -87,6 +89,8 @@ def detect_by_hex_length(text, hex_rules):
     return []
 
 def detect_generic_phc(text):
+    # Detect hashes that follow the generic PHC string format.
+    # If it starts with '$' and has at least three parts, assume a PHC-like format.
     parts = text.split("$")
     if text.startswith("$") and len(parts) >= 3:
         return HashCandidate(
@@ -97,6 +101,8 @@ def detect_generic_phc(text):
     return None
 
 def detect_shape_hint(text):
+    # Detect non-hash formats by simple shape hints.
+    # For example JWT and Base64 strings are often mistaken for hashes.
     if text.startswith("eyJ"):
         return HashCandidate(
             algorithm="JWT",
