@@ -119,6 +119,8 @@ def detect_shape_hint(text):
 
 
 def identify(text):
+    # Load detection rules and try a sequence of identification methods.
+    # Returns either a single HashCandidate, a list of candidates, or an empty list.
     with open("rules.json", "r") as f:
         data = json.load(f)
     prefix_rules = data["prefix_rules"]
@@ -148,6 +150,7 @@ def identify(text):
 
 
 def main():
+    # Parse command line input and print the identified hash candidates.
     parser = argparse.ArgumentParser(description="Identify hash types from input text.")
     parser.add_argument("hash", help="The hash to identify.")
     args = parser.parse_args()
