@@ -15,8 +15,25 @@
 "$6$":{
 "algorithm": "SHA-512-Crypt",
 "confidence" :"high" }
+"$y$":{
+"algorithm": "bcrypt",
+"confidence" :"high" },
+"$5$":{
+"algorithm": "SHA-256-Crypt",
+"confidence" :"high" },
+"$argon2i$":{
+"algorithm": "Argon2i",
+"confidence" :"high" },
+"$argon2d$":{
+"algorithm": "Argon2d",
+"confidence" :"high" },
+"$pbkdf2-sha256$":{
+"algorithm": "PBKDF2-SHA256",
+"confidence" :"high" }
+
 },
  "hex_rules":{
+"8":["CRC32"],   
 "32":["MD5","NTLM","MD4","RIPEMD-128"],
 "40":  ["SHA-1", "RIPEMD-160"],
 "56":  ["SHA-224"],
