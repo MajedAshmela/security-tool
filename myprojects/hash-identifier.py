@@ -38,10 +38,14 @@ def _is_netntlm(text):
 
 
 def _is_descrypt(text):
+    # Check whether the string matches the DES-Crypt hash format.
+    # DES-Crypt hashes are 13 characters long and use the ./0-9A-Za-z alphabet.
     return bool(re.match(r"^[./0-9a-zA-Z]{13}$", text))
 
 
 def detect_by_prefix(text, prefix_rules):
+    # Detect a hash type based on a predefined prefix rule set.
+    # Returns a HashCandidate when the input starts with a known prefix.
     for key, value in prefix_rules.items():
         if text.startswith(key):
             return HashCandidate(
@@ -53,6 +57,8 @@ def detect_by_prefix(text, prefix_rules):
 
 
 def detect_special(text):
+    # Detect hash formats that cannot be identified by prefix or generic hex length.
+    # These are special-case hash shapes like NetNTLM, MySQL5, and DES-Crypt.
     if _is_netntlm(text):
         return HashCandidate(algorithm="NetNTLM", confidence="high", reason="special shape")
 
