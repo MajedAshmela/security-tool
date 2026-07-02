@@ -4,8 +4,15 @@ import re
 import json
 import argparse
 
+# Use dataclass to automatically generate init, repr, and comparison methods.
+# frozen=True makes HashCandidate immutable, and slots=True reduces memory usage.
 @dataclass(frozen=True, slots=True)
+
 class HashCandidate:
+    # Represents a candidate hash identification result.
+    # algorithm: the detected hash algorithm name.
+    # confidence: how confident the detection is.
+    # reason: why this candidate was selected.
     algorithm: str
     confidence: Literal["high", "medium", "low"]
     reason: str
