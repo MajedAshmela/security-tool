@@ -12,14 +12,20 @@ class HashCandidate:
 
 
 def _is_hex(text):
+    # Check whether the string contains only hexadecimal characters.
+    # This is used to identify hash types represented as a hex string.
     return bool(re.match(r"^[0-9a-fA-F]+$", text))
 
 
 def _is_mysql5(text):
+    # Check whether the string follows the MySQL5 hash format.
+    # MySQL5 hashes start with '*' and contain 40 uppercase hex digits after it.
     return text.startswith("*") and len(text) == 41 and bool(re.match(r"^[0-9A-F]+$", text[1:]))
 
 
 def _is_netntlm(text):
+    # Check whether the string matches the NetNTLM hash shape.
+    # NetNTLM hashes typically have 6 parts separated by ':' and the second part is empty.
     parts = text.split(":")
     return len(parts) == 6 and parts[1] == ""
 
