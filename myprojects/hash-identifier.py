@@ -3,7 +3,7 @@ from typing import Literal
 import re
 import json
 import argparse
-
+#majed
 @dataclass(frozen=True, slots=True)
 class HashCandidate:
     algorithm: str
