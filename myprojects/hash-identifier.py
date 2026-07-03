@@ -3,7 +3,7 @@ from typing import Literal
 import re
 import json
 import argparse
-
+#MAJEDALI
 # Use dataclass to automatically generate init, repr, and comparison methods.
 # frozen=True makes HashCandidate immutable, and slots=True reduces memory usage.
 @dataclass(frozen=True, slots=True)
