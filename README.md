@@ -1,22 +1,18 @@
 # 🔐 Cybersecurity Journey
 
-## 👨‍💻 About Me
-Hi, I'm **Majed Ashmela** — a Network & Security Engineer from Libya.
-- 🎓 Bachelor of IT – Networks 
-- 📜 CCNA & CCNP Certified
-- 🐧 Linux – Red Hat System Administration
+A hands-on repository for learning cybersecurity by building security tools from scratch.
 
-## 🎯 My Goal
-Becoming a professional **Cybersecurity Engineer**
+## 📁 Projects
 
-## 📚 What I'm Learning
-- Cybersecurity fundamentals
+### hash-identifier
+Python CLI tool that identifies hash types (MD5, SHA family, bcrypt, NTLM, and more) using a data-driven rules engine (`rules.json`).
+
+## 🎯 Focus Areas
+- SOC Level 1 / Blue Team fundamentals
 - Network Security
-- Penetration Testing & Defense
+- Python for security tooling
+- Penetration Testing & Defense basics
 
-## 📫 Connect With Me
-- GitHub: [MajedAshmela](https://github.com/MajedAshmela)
-- LINKEDIN: [MajedAshmela] (www.linkedin.com/in/majed-ashmela)
-
-
-test
+## 📌 Notes
+- Tools in this repo are built independently for learning purposes, not copied from existing projects.
+- More tools will be added as progress continues.
