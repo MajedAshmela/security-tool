@@ -1,11 +1,35 @@
-# RHEL 9.6 Lab Environment
+# Basic Setup
 
-## VM Specs
-- OS: Red Hat Enterprise Linux 9.6
-- Base Environment: Server (No GUI)
-- install all the the important updates 
-## Purpose
-Personal Linux lab environment for:
-- Cybersecurity tools and practice
-- Security labs and projects
-- Red Hat administration skills
+Foundational environment setup — done once, before starting any project in this repo.
+
+## System
+
+- **OS:** RHEL 9.6 (Red Hat Enterprise Linux)
+- **Platform:** Virtual Machine (VMware)
+- **Access:** SSH from Windows CMD
+- **Editor:** nano
+
+## Python
+
+Default system Python is 3.9.25, which doesn't support newer features like `dataclass(slots=True)`.
+Additional Python versions can be installed alongside it (from RHEL's official appstream repo) without touching the default.
+
+```bash
+sudo dnf install python3.12
+```
+
+The default `python3` is left untouched for system stability. Use the specific version explicitly when running scripts that need it:
+
+```bash
+python3.12 script.py
+```
+
+## Package Management
+
+- **dnf** — RHEL/Fedora's official package manager
+
+## Git & GitHub
+
+- **Repo:** github.com/MajedAshmela/cybersecurity-journey
+- Credential helper configured for authentication
+- GitHub-protected noreply email used for commits (keeps real email private)
