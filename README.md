@@ -4,7 +4,7 @@ A hands-on repository for learning cybersecurity by building security tools from
 
 ## 📁 Repository Structure
 
-- **`tools/`** — Security tools built from scratch (Python, C++, etc.)
+- **`tools/`** — Security tools built from scratch (Python, php)
 - **`environment_setup/`** — Base environment setup (RHEL, Python, Git) needed before starting any project here
 - **`base-knowledge/`** — General theoretical and scientific cybersecurity knowledge/notes
 
