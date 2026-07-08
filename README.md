@@ -1,4 +1,4 @@
-# 🔐 Cybersecurity Journey
+#  Info
 
 A hands-on repository for learning cybersecurity by building security tools from scratch.
 
@@ -8,10 +8,9 @@ A hands-on repository for learning cybersecurity by building security tools from
 Python CLI tool that identifies hash types (MD5, SHA family, bcrypt, NTLM, and more) using a data-driven rules engine (`rules.json`).
 
 ## 🎯 Focus Areas
-- SOC Level 1 / Blue Team fundamentals
+- Blue Team / SOC fundamentals
 - Network Security
-- Python for security tooling
-- Penetration Testing & Defense basics
+- Security tooling with Python
 
 ## 📌 Notes
 - Tools in this repo are built independently for learning purposes, not copied from existing projects.
