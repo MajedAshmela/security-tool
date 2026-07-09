@@ -1,3 +1,25 @@
+"""Hash type identifier.
+
+A command-line tool that inspects a string and guesses which hashing
+algorithm (or hash-like format) produced it. Identification is purely
+structural — it looks at the prefix, length, and character set of the
+input; it never tries to reverse or crack the hash.
+
+Detection strategy, tried in order by ``identify()``:
+    1. Known prefix          (e.g. ``$2b$`` -> bcrypt)         -> high
+    2. Special fixed shapes   (NetNTLMv1/v2, MySQL5, DES-Crypt) -> high/medium
+    3. Hex length             (e.g. 32 hex chars -> MD5/NTLM/...) -> medium/low
+    4. Generic PHC string      (``$name$...`` we don't have a rule for) -> low
+    5. Non-hash shape hints    (JWT, Base64)                    -> low
+
+Detection rules live in ``rules.json`` next to this file, so new
+algorithms can be added without touching the code.
+
+Usage:
+    python hash-identifier.py <hash>
+    python hash-identifier.py --file hashes.txt
+"""
+
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -7,61 +29,124 @@ import json
 import argparse
 import sys
 
+# Absolute path to the rules file, resolved relative to THIS script (not the
+# caller's working directory) so the tool works no matter where it's run from.
 RULES_PATH = Path(__file__).resolve().parent / "rules.json"
 
 
-# Use dataclass to automatically generate init, repr, and comparison methods.
-# frozen=True makes HashCandidate immutable, and slots=True reduces memory usage.
 @dataclass(frozen=True, slots=True)
 class HashCandidate:
-    # Represents a candidate hash identification result.
-    # algorithm: the detected hash algorithm name.
-    # confidence: how confident the detection is.
-    # reason: why this candidate was selected.
+    """One possible identification of a hash string.
+
+    Using ``@dataclass`` auto-generates ``__init__``/``__repr__``/``__eq__``.
+    ``frozen=True`` makes instances immutable (a result should never be
+    mutated after detection); ``slots=True`` drops the per-instance ``__dict__``
+    to keep these lightweight value objects cheap in memory.
+
+    Attributes:
+        algorithm: Human-readable algorithm name, e.g. ``"MD5"`` or ``"bcrypt"``.
+        confidence: How sure the detector is — ``"high"`` (definitive prefix or
+            shape), ``"medium"`` (most likely candidate for a length), or
+            ``"low"`` (plausible but ambiguous).
+        reason: Short explanation of why this candidate fired, shown to the user.
+    """
+
     algorithm: str
     confidence: Literal["high", "medium", "low"]
     reason: str
 
 
 def _is_hex(text):
-    # Check whether the string contains only hexadecimal characters.
-    # This is used to identify hash types represented as a hex string.
+    """Return True if ``text`` is a non-empty string of only hex digits (0-9a-fA-F)."""
     return bool(re.match(r"^[0-9a-fA-F]+$", text))
 
 
 def _is_mysql5(text):
-    # Check whether the string follows the MySQL5 hash format.
-    # MySQL5 hashes start with '*' and contain 40 uppercase hex digits after it.
+    """Return True if ``text`` matches the MySQL5 password format.
+
+    MySQL5 stores ``SHA1(SHA1(password))`` as a leading ``*`` followed by 40
+    UPPERCASE hex digits (41 chars total). The case check is intentional:
+    real MySQL5 output is always uppercase, so a lowercase look-alike is
+    rejected rather than reported with false confidence.
+    """
     return text.startswith("*") and len(text) == 41 and bool(re.match(r"^[0-9A-F]+$", text[1:]))
 
 
-def _is_netntlm(text):
-    # Check whether the string matches the NetNTLM hash shape.
-    # Format is user::domain:challenge:response:... with an 8-byte hex
-    # challenge and a 24-byte (or longer) hex response.
+def _netntlm_parts(text):
+    """Return the 6 colon-separated fields shared by both NetNTLM versions.
+
+    Both NetNTLMv1 and v2 have the shape ``user::domain:field3:field4:field5``
+    — exactly 6 fields with an empty second field (where the LM hash used to
+    sit). Returns the field list if the shape matches, otherwise ``None``.
+    """
     parts = text.split(":")
     if len(parts) != 6 or parts[1] != "":
+        return None
+    return parts
+
+
+def _is_netntlmv1(text):
+    """Return True if ``text`` is a NetNTLMv1 challenge/response record.
+
+    Layout: ``user::domain:LM-response:NT-response:challenge`` where the LM and
+    NT responses are 48 hex chars each and the server challenge is 16 hex chars.
+    """
+    parts = _netntlm_parts(text)
+    if parts is None:
         return False
-    challenge, response = parts[3], parts[4]
+    lm, nt, challenge = parts[3], parts[4], parts[5]
+    return (
+        len(lm) == 48 and _is_hex(lm)
+        and len(nt) == 48 and _is_hex(nt)
+        and len(challenge) == 16 and _is_hex(challenge)
+    )
+
+
+def _is_netntlmv2(text):
+    """Return True if ``text`` is a NetNTLMv2 challenge/response record.
+
+    Layout: ``user::domain:server-challenge:NTLMv2-HMAC:blob`` where the
+    challenge is 16 hex chars, the HMAC is exactly 32 hex chars, and the blob
+    is a variable-length hex string. The 32-hex HMAC is what distinguishes v2
+    from v1 (whose fields at the same positions are 48 hex chars).
+    """
+    parts = _netntlm_parts(text)
+    if parts is None:
+        return False
+    challenge, hmac, blob = parts[3], parts[4], parts[5]
     return (
         len(challenge) == 16 and _is_hex(challenge)
-        and len(response) >= 48 and _is_hex(response)
+        and len(hmac) == 32 and _is_hex(hmac)
+        and len(blob) >= 40 and _is_hex(blob)
     )
 
 
 def _is_descrypt(text):
-    # Check whether the string matches the DES-Crypt hash format.
-    # DES-Crypt hashes are 13 characters long and use the ./0-9A-Za-z alphabet.
+    """Return True if ``text`` looks like a traditional 13-char DES-Crypt hash.
+
+    Legacy ``/etc/passwd`` format with no prefix: exactly 13 characters from
+    the ``./0-9A-Za-z`` alphabet. Reported at medium confidence because other
+    short tokens can share this shape.
+    """
     return bool(re.match(r"^[./0-9a-zA-Z]{13}$", text))
 
 
 def detect_by_prefix(text, prefix_rules):
-    # Detect a hash type based on a predefined prefix rule set.
-    # Returns a HashCandidate when the input starts with a known prefix.
-    # A prefix match alone doesn't mean much for variable-length formats
-    # (bcrypt, argon2, pbkdf2, ...), so min_length catches obviously
-    # truncated/garbage input and downgrades confidence instead of
-    # trusting the prefix blindly.
+    """Identify a hash by matching a known leading prefix (strongest signal).
+
+    Walks ``prefix_rules`` (from ``rules.json``) and returns a candidate for
+    the first prefix ``text`` starts with. A prefix alone is weak for
+    variable-length formats (bcrypt, argon2, ...), so if the rule defines a
+    ``min_length`` and the input is shorter, the confidence is downgraded to
+    ``"low"`` rather than blindly trusting the prefix.
+
+    Args:
+        text: The hash string being identified.
+        prefix_rules: Mapping of prefix -> {"algorithm", "confidence", ["min_length"]}.
+
+    Returns:
+        A ``HashCandidate`` on the first matching prefix, or ``None``.
+    """
     for key, value in prefix_rules.items():
         if not text.startswith(key):
             continue
@@ -78,10 +163,20 @@ def detect_by_prefix(text, prefix_rules):
 
 
 def detect_special(text):
-    # Detect hash formats that cannot be identified by prefix or generic hex length.
-    # These are special-case hash shapes like NetNTLM, MySQL5, and DES-Crypt.
-    if _is_netntlm(text):
-        return HashCandidate(algorithm="NetNTLM", confidence="high", reason="special shape")
+    """Identify fixed-shape formats that have no prefix and aren't plain hex.
+
+    Covers challenge/response and vendor formats with a distinctive structure:
+    NetNTLMv1/v2, MySQL5, and DES-Crypt. Checked before the generic hex-length
+    step because their shapes are specific enough to report with confidence.
+
+    Returns:
+        A ``HashCandidate`` for the first shape that matches, or ``None``.
+    """
+    if _is_netntlmv1(text):
+        return HashCandidate(algorithm="NetNTLMv1", confidence="high", reason="special shape (LM+NT response, 16-hex challenge)")
+
+    if _is_netntlmv2(text):
+        return HashCandidate(algorithm="NetNTLMv2", confidence="high", reason="special shape (16-hex challenge, 32-hex HMAC, blob)")
 
     if _is_mysql5(text):
         return HashCandidate(algorithm="MySQL5", confidence="high", reason="special shape")
@@ -93,8 +188,21 @@ def detect_special(text):
 
 
 def detect_by_hex_length(text, hex_rules):
-    # Try to identify a hash by matching its hex length against known rules.
-    # Returns a list of candidates because multiple algorithms can share the same hex length.
+    """Identify a raw hex hash by how many hex characters it has.
+
+    Many algorithms emit fixed-width hex (e.g. 32 chars -> MD5/NTLM/MD4/...),
+    so length narrows the field but rarely pins a single answer. The first
+    algorithm listed for a length (the most common one) gets ``"medium"``
+    confidence; the rest get ``"low"``.
+
+    Args:
+        text: The hash string being identified.
+        hex_rules: Mapping of length-as-string -> ordered list of algorithm names.
+
+    Returns:
+        A list of ``HashCandidate`` (possibly several), or ``[]`` if the input
+        isn't pure hex or its length isn't in the rules.
+    """
     length = str(len(text))
     if _is_hex(text) and length in hex_rules:
         algorithms = hex_rules[length]
@@ -109,9 +217,15 @@ def detect_by_hex_length(text, hex_rules):
         return results
     return []
 
+
 def detect_generic_phc(text):
-    # Detect hashes that follow the generic PHC string format.
-    # If it starts with '$' and has at least three parts, assume a PHC-like format.
+    """Recognize a PHC-style ``$name$...`` string we have no specific rule for.
+
+    If the input starts with ``$`` and splits into at least three ``$``-parts,
+    it's probably a Password Hashing Competition (PHC) formatted hash from an
+    algorithm not in our prefix table. Reported as generic ``"PHC"`` at low
+    confidence — better than a silent no-match. Returns ``None`` otherwise.
+    """
     parts = text.split("$")
     if text.startswith("$") and len(parts) >= 3:
         return HashCandidate(
@@ -121,12 +235,19 @@ def detect_generic_phc(text):
         )
     return None
 
+
+# Base64 alphabet with optional 1-2 chars of '=' padding, anchored end to end.
 _BASE64_RE = re.compile(r"^[A-Za-z0-9+/]+={0,2}$")
 
 
 def detect_shape_hint(text):
-    # Detect non-hash formats by simple shape hints.
-    # For example JWT and Base64 strings are often mistaken for hashes.
+    """Flag common non-hash inputs that users often paste by mistake.
+
+    JWTs (start with ``eyJ``, the Base64 of ``{"``) and Base64 blobs aren't
+    hashes, but telling the user what they actually pasted is more helpful
+    than "no match". Both are reported at low confidence. Returns ``None`` if
+    the input doesn't look like either.
+    """
     if text.startswith("eyJ"):
         return HashCandidate(
             algorithm="JWT",
@@ -144,6 +265,20 @@ def detect_shape_hint(text):
 
 @lru_cache(maxsize=1)
 def _load_rules():
+    """Load, validate, and cache the detection rules from ``rules.json``.
+
+    Reads the JSON file once (result is memoized via ``lru_cache``) and
+    validates its structure so a malformed rules file fails loudly with a
+    clear message instead of causing confusing errors deep in detection.
+
+    Returns:
+        Tuple of ``(prefix_rules, hex_rules, hashcat_modes)``.
+
+    Raises:
+        SystemExit: if the file is missing, isn't valid JSON, lacks a required
+            key, or contains an invalid confidence / missing algorithm / a
+            non-object ``hashcat_modes``.
+    """
     try:
         with open(RULES_PATH, "r") as f:
             data = json.load(f)
@@ -174,14 +309,25 @@ def _load_rules():
 
 
 def hashcat_mode_for(algorithm):
-    # Look up the hashcat mode number for a detected algorithm, if known.
+    """Return the hashcat ``-m`` mode number for an algorithm, or ``"-"`` if unknown."""
     _, _, hashcat_modes = _load_rules()
     return hashcat_modes.get(algorithm, "-")
 
 
 def identify(text):
-    # Load detection rules and try a sequence of identification methods.
-    # Always returns a list of candidates (empty if none matched).
+    """Identify the hash type(s) of ``text`` by trying each detector in order.
+
+    Runs the detection strategy (prefix -> special shape -> hex length ->
+    generic PHC -> shape hint) and returns as soon as one produces a result.
+
+    Args:
+        text: The hash string to identify.
+
+    Returns:
+        A list of ``HashCandidate``. May contain several candidates (ambiguous
+        hex lengths) or be empty if nothing matched. Always a list, so callers
+        never need to type-check the return value.
+    """
     prefix_rules, hex_rules, _ = _load_rules()
 
     result = detect_by_prefix(text, prefix_rules)
@@ -207,6 +353,11 @@ def identify(text):
     return []
 
 
+# ---------------------------------------------------------------------------
+# Output rendering (CLI presentation only — no detection logic below here)
+# ---------------------------------------------------------------------------
+
+# Confidence sort order (high first) and the ANSI color used for each level.
 _CONFIDENCE_RANK = {"high": 0, "medium": 1, "low": 2}
 _CONFIDENCE_COLOR = {"high": "\033[1;92m", "medium": "\033[1;93m", "low": "\033[1;91m"}
 _TITLE_COLOR = "\033[1;96m"
@@ -219,6 +370,7 @@ _RESET = "\033[0m"
 
 _PAD = 2  # spaces of breathing room on each side of a cell
 
+# Box-drawing glyphs: Unicode for capable terminals, ASCII as a fallback.
 _UNICODE_BOX = dict(tl="┌", tm="┬", tr="┐", ml="├", mm="┼", mr="┤",
                      bl="└", bm="┴", br="┘", v="│", h="─", dash="—")
 _ASCII_BOX = dict(tl="+", tm="+", tr="+", ml="+", mm="+", mr="+",
@@ -226,6 +378,12 @@ _ASCII_BOX = dict(tl="+", tm="+", tr="+", ml="+", mm="+", mr="+",
 
 
 def _box_charset():
+    """Return the Unicode box-drawing glyphs, or an ASCII fallback.
+
+    Some Windows consoles use a legacy codepage (e.g. cp1252) that can't encode
+    ``┌│─``; on those, printing Unicode would crash. This probes whether the
+    current stdout encoding can represent the glyphs and picks accordingly.
+    """
     encoding = getattr(sys.stdout, "encoding", None) or "ascii"
     try:
         "".join(_UNICODE_BOX.values()).encode(encoding)
@@ -235,15 +393,29 @@ def _box_charset():
 
 
 def _c(text, color, use_color):
+    """Wrap ``text`` in an ANSI ``color`` code when ``use_color`` is on, else return it plain."""
     return f"{color}{text}{_RESET}" if use_color else text
 
 
 def _print_batch(groups, use_color):
-    # groups: list of (hash_text, results) tuples. results may be empty.
+    """Render all identification results into a single aligned, bordered table.
+
+    Draws one box containing every input hash. Each hash gets a labeled section
+    with its candidate rows (Algorithm / Confidence / Hashcat Mode / Reason),
+    candidates sorted highest-confidence first. Column widths are computed
+    across all rows so everything lines up, and the box auto-widens if a hash
+    string or title is longer than the columns. A hash with no matches renders
+    a single "No hash type identified" row.
+
+    Args:
+        groups: List of ``(hash_text, results)`` tuples; ``results`` may be empty.
+        use_color: Whether to emit ANSI color codes.
+    """
     box = _box_charset()
     headers = ["Algorithm", "Confidence", "Hashcat Mode", "Reason"]
     no_match_row = ["-", "-", "-", "No hash type identified"]
 
+    # Build the display rows for each hash, sorting candidates by confidence.
     group_rows = []
     for hash_text, results in groups:
         results = sorted(results, key=lambda r: _CONFIDENCE_RANK[r.confidence])
@@ -253,6 +425,7 @@ def _print_batch(groups, use_color):
         ] or [no_match_row]
         group_rows.append((hash_text, results, rows))
 
+    # Column widths = widest cell (or header) in each column, across all hashes.
     all_rows = [row for _, _, rows in group_rows for row in rows]
     widths = [
         max(len(headers[i]), *(len(row[i]) for row in all_rows))
@@ -261,18 +434,20 @@ def _print_batch(groups, use_color):
     cell_widths = [w + _PAD * 2 for w in widths]
     inner_width = sum(cell_widths) + (len(widths) - 1)
 
+    # The title and per-hash label rows span the full width; if any is wider
+    # than the columns, grow the last column so the box stays rectangular.
     count = len(groups)
     title = f" Hash Identification Results {box['dash']} {count} hash{'es' if count != 1 else ''} "
     labels = [f" Hash: {hash_text} " for hash_text, _, _ in group_rows]
     widest_line = max([len(title)] + [len(label) for label in labels])
     if widest_line > inner_width:
-        # widen the last column so the box stays rectangular for long input hashes
         deficit = widest_line - inner_width
         widths[-1] += deficit
         cell_widths[-1] += deficit
         inner_width += deficit
 
     def border(left, mid, right, full_width=False):
+        """Build a horizontal border line; ``full_width`` skips column junctions."""
         if full_width:
             line = left + box["h"] * inner_width + right
         else:
@@ -280,10 +455,12 @@ def _print_batch(groups, use_color):
         return _c(line, _BORDER_COLOR, use_color)
 
     def single_row(text, color):
+        """Build a full-width single-cell row (used for the title and hash labels)."""
         v = _c(box["v"], _BORDER_COLOR, use_color)
         return v + _c(text.ljust(inner_width), color, use_color) + v
 
     def cell_row(cells, cell_colors):
+        """Build a multi-column data row, padding and coloring each cell."""
         v = _c(box["v"], _BORDER_COLOR, use_color)
         parts = []
         for text, width, color in zip(cells, widths, cell_colors):
@@ -298,6 +475,7 @@ def _print_batch(groups, use_color):
     print(cell_row(headers, [_HEADER_COLOR] * len(headers)))
 
     for i, (hash_text, results, rows) in enumerate(group_rows):
+        # With multiple hashes, print a labeled sub-header before each block.
         if len(groups) > 1:
             print(border(box["ml"], box["bm"], box["mr"]))
             print(single_row(f" Hash: {hash_text} ", _TITLE_COLOR))
@@ -314,6 +492,11 @@ def _print_batch(groups, use_color):
 
 
 def _read_hashes(args):
+    """Collect the hash strings to identify from parsed CLI ``args``.
+
+    With ``--file``, reads the file and returns one entry per non-blank line
+    (whitespace stripped). Otherwise returns the single positional hash.
+    """
     if args.file:
         with open(args.file, "r") as f:
             lines = f.readlines()
@@ -322,7 +505,12 @@ def _read_hashes(args):
 
 
 def main():
-    # Parse command line input and print the identified hash candidates.
+    """CLI entry point: parse arguments, identify the hash(es), print the table.
+
+    Accepts either a single positional hash or ``--file`` (one hash per line),
+    but not both and not neither. ``--no-color`` disables ANSI output; color is
+    also auto-disabled when stdout isn't a TTY (e.g. piped to a file).
+    """
     parser = argparse.ArgumentParser(description="Identify hash types from input text.")
     parser.add_argument("hash", nargs="?", help="The hash to identify.")
     parser.add_argument("--file", help="Path to a text file with one hash per line.")
