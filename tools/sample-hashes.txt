@@ -1,0 +1,10 @@
+5f4dcc3b5aa765d61d8327deb882cf99
+aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d
+5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
+$2b$12$R9h/cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW
+$argon2id$v=19$m=65536,t=3,p=4$c29tZXNhbHQ$RdescudvJCsgt3ub+b+dWRWJTmaaJObG
+$1$abcdefgh$dxHfLAsjHkDRmG7419EOM1
+admin::WORKGROUP:1122334455667788:99887766554433221100ffeeddccbbaa9988776655443322:1122334455667788
+*94BDCEBE19083CE2A1F959FD02F964C7AF4CFC29
+$P$B123456789wJHl3XPS6VbxfvcWmzT91.
+$krb5tgs$23$*user$REALM.COM$spn/host*$deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
