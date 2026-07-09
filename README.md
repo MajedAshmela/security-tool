@@ -23,3 +23,4 @@ Python CLI tool that identifies hash types (MD5, SHA family, bcrypt, NTLM, and m
 
 Tools in this repo are built independently for learning purposes, not copied from existing projects.
 More tools will be added as progress continues.
+.
