@@ -377,14 +377,16 @@ _ASCII_BOX = dict(tl="+", tm="+", tr="+", ml="+", mm="+", mr="+",
                   bl="+", bm="+", br="+", v="|", h="-", dash="-")
 
 
-def _box_charset():
+def _box_charset(encoding=None):
     """Return the Unicode box-drawing glyphs, or an ASCII fallback.
 
     Some Windows consoles use a legacy codepage (e.g. cp1252) that can't encode
     ``┌│─``; on those, printing Unicode would crash. This probes whether the
-    current stdout encoding can represent the glyphs and picks accordingly.
+    target encoding can represent the glyphs and picks accordingly. Defaults
+    to stdout's encoding; pass ``encoding`` explicitly when rendering for
+    something other than the live terminal (e.g. a UTF-8 output file).
     """
-    encoding = getattr(sys.stdout, "encoding", None) or "ascii"
+    encoding = encoding or getattr(sys.stdout, "encoding", None) or "ascii"
     try:
         "".join(_UNICODE_BOX.values()).encode(encoding)
         return _UNICODE_BOX
@@ -397,7 +399,7 @@ def _c(text, color, use_color):
     return f"{color}{text}{_RESET}" if use_color else text
 
 
-def _print_batch(groups, use_color):
+def _render_batch(groups, use_color, box_encoding=None):
     """Render all identification results into a single aligned, bordered table.
 
     Draws one box containing every input hash. Each hash gets a labeled section
@@ -410,8 +412,14 @@ def _print_batch(groups, use_color):
     Args:
         groups: List of ``(hash_text, results)`` tuples; ``results`` may be empty.
         use_color: Whether to emit ANSI color codes.
+        box_encoding: Encoding to pick box-drawing glyphs for (see ``_box_charset``).
+            Defaults to stdout's encoding.
+
+    Returns:
+        A list of rendered lines (no trailing newlines), ready to print or
+        write to a file.
     """
-    box = _box_charset()
+    box = _box_charset(box_encoding)
     headers = ["Algorithm", "Confidence", "Hashcat Mode", "Reason"]
     no_match_row = ["-", "-", "-", "No hash type identified"]
 
@@ -469,26 +477,28 @@ def _print_batch(groups, use_color):
             parts.append(" " * _PAD + styled + " " * _PAD)
         return v + v.join(parts) + v
 
-    print(border(box["tl"], box["tm"], box["tr"], full_width=True))
-    print(single_row(title, _TITLE_COLOR))
-    print(border(box["ml"], box["tm"], box["mr"]))
-    print(cell_row(headers, [_HEADER_COLOR] * len(headers)))
+    lines = []
+    lines.append(border(box["tl"], box["tm"], box["tr"], full_width=True))
+    lines.append(single_row(title, _TITLE_COLOR))
+    lines.append(border(box["ml"], box["tm"], box["mr"]))
+    lines.append(cell_row(headers, [_HEADER_COLOR] * len(headers)))
 
-    for i, (hash_text, results, rows) in enumerate(group_rows):
+    for hash_text, results, rows in group_rows:
         # With multiple hashes, print a labeled sub-header before each block.
         if len(groups) > 1:
-            print(border(box["ml"], box["bm"], box["mr"]))
-            print(single_row(f" Hash: {hash_text} ", _TITLE_COLOR))
-            print(border(box["ml"], box["tm"], box["mr"]))
+            lines.append(border(box["ml"], box["bm"], box["mr"]))
+            lines.append(single_row(f" Hash: {hash_text} ", _TITLE_COLOR))
+            lines.append(border(box["ml"], box["tm"], box["mr"]))
         else:
-            print(border(box["ml"], box["mm"], box["mr"]))
+            lines.append(border(box["ml"], box["mm"], box["mr"]))
         if results:
             for r, row in zip(results, rows):
-                print(cell_row(row, [_ALGO_COLOR, _CONFIDENCE_COLOR[r.confidence], _ALGO_COLOR, _REASON_COLOR]))
+                lines.append(cell_row(row, [_ALGO_COLOR, _CONFIDENCE_COLOR[r.confidence], _ALGO_COLOR, _REASON_COLOR]))
         else:
-            print(cell_row(rows[0], [_ERROR_COLOR, _ERROR_COLOR, _ERROR_COLOR, _ERROR_COLOR]))
+            lines.append(cell_row(rows[0], [_ERROR_COLOR, _ERROR_COLOR, _ERROR_COLOR, _ERROR_COLOR]))
 
-    print(border(box["bl"], box["bm"], box["br"], full_width=True))
+    lines.append(border(box["bl"], box["bm"], box["br"], full_width=True))
+    return lines
 
 
 def _read_hashes(args):
@@ -504,16 +514,34 @@ def _read_hashes(args):
     return [args.hash.strip()]
 
 
+def _default_output_path(file_arg):
+    """Return the auto-generated output path for ``--file`` mode: a
+    ``result.txt`` written next to the input file, not the current directory.
+    """
+    return str(Path(file_arg).resolve().parent / "result.txt")
+
+
 def main():
-    """CLI entry point: parse arguments, identify the hash(es), print the table.
+    """CLI entry point: parse arguments, identify the hash(es), report the results.
 
     Accepts either a single positional hash or ``--file`` (one hash per line),
-    but not both and not neither. ``--no-color`` disables ANSI output; color is
-    also auto-disabled when stdout isn't a TTY (e.g. piped to a file).
+    but not both and not neither. The two input modes default to different
+    destinations:
+
+    - A single positional hash prints the table to the terminal (colored,
+      unless ``--no-color`` or stdout isn't a TTY).
+    - ``--file`` writes the table to a ``result.txt`` created next to the
+      input file (uncolored, UTF-8) instead of printing — batches are meant
+      for a saved report, not a scrollback buffer.
+
+    ``--output`` overrides the destination file path in either mode.
     """
     parser = argparse.ArgumentParser(description="Identify hash types from input text.")
     parser.add_argument("hash", nargs="?", help="The hash to identify.")
     parser.add_argument("--file", help="Path to a text file with one hash per line.")
+    parser.add_argument("--output", "-o", help="Write the results table to this file. Defaults to "
+                                                "'result.txt' next to --file; has no effect for a single hash "
+                                                "unless given explicitly.")
     parser.add_argument("--no-color", action="store_true", help="Disable colored output.")
     args = parser.parse_args()
 
@@ -527,9 +555,21 @@ def main():
     except FileNotFoundError:
         parser.error(f"file not found: {args.file}")
 
-    use_color = not args.no_color and sys.stdout.isatty()
     groups = [(h, identify(h)) for h in hash_texts]
-    _print_batch(groups, use_color)
+
+    output_path = args.output or (_default_output_path(args.file) if args.file else None)
+
+    if output_path:
+        lines = _render_batch(groups, use_color=False, box_encoding="utf-8")
+        try:
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines) + "\n")
+        except OSError as e:
+            parser.error(f"could not write to {output_path}: {e}")
+    else:
+        use_color = not args.no_color and sys.stdout.isatty()
+        lines = _render_batch(groups, use_color=use_color)
+        print("\n".join(lines))
 
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@ A hands-on repository for learning cybersecurity by building security tools from
 ## 🛠️ Projects
 
 ### hash-identifier
-Python CLI tool that identifies hash types (MD5, SHA family, bcrypt, NTLM, and more) using a data-driven rules engine (`rules.json`). See [`tools/README.md`](tools/README.md) for full documentation.
+Python CLI tool that identifies hash types (MD5, SHA family, bcrypt, NTLM, and more) using a data-driven rules engine (`rules.json`). See [`tools/hash-identifier/README.md`](tools/hash-identifier/README.md) for full documentation.
 
 ## 🎯 Focus Areas
 

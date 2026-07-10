@@ -22,7 +22,7 @@ added without touching any code.
   terminals that can't render Unicode box characters (e.g. legacy Windows
   consoles), and automatic color-off when piped to a file.
 - Data-driven: detection rules are external JSON, not hardcoded.
-- Covered by a **pytest** suite (31 tests).
+- Covered by a **pytest** suite (35 tests).
 
 ## Requirements
 
@@ -32,26 +32,38 @@ added without touching any code.
 
 ## Usage
 
-Identify a single hash (wrap hashes containing `$` in single quotes so the
-shell doesn't expand them):
+Identify a single hash — this always prints the table to the terminal (wrap
+hashes containing `$` in single quotes so the shell doesn't expand them):
 
 ```bash
 python hash-identifier.py '5f4dcc3b5aa765d61d8327deb882cf99'
 ```
 
-Identify many hashes from a file (one per line):
+Identify many hashes from a file (one per line) — this does **not** print to
+the terminal. It writes a `result.txt` next to the input file instead
+(batches are meant for a saved report, not a scrollback buffer):
 
 ```bash
 python hash-identifier.py --file sample-hashes.txt
+# -> writes sample-hashes.txt's sibling "result.txt", nothing printed
+```
+
+Use `--output`/`-o` to override the destination path in either mode (also
+useful to save a single hash's result instead of printing it):
+
+```bash
+python hash-identifier.py --file sample-hashes.txt --output results.txt
+python hash-identifier.py '5f4dcc3b5aa765d61d8327deb882cf99' --output result.txt
 ```
 
 ### Options
 
 | Flag | Description |
 |------|-------------|
-| `hash` | A single hash string to identify (positional). |
-| `--file PATH` | Read hashes from a text file, one per line. Blank lines ignored. |
-| `--no-color` | Disable ANSI colors (also auto-disabled when output is not a terminal). |
+| `hash` | A single hash string to identify (positional). Prints to the terminal unless `--output` is given. |
+| `--file PATH` | Read hashes from a text file, one per line. Blank lines ignored. Defaults to writing `result.txt` next to `PATH` instead of printing. |
+| `--output PATH`, `-o PATH` | Write the results table to this file (UTF-8, uncolored) instead of the default destination for the input mode. Nothing is printed to the terminal when writing to a file. |
+| `--no-color` | Disable ANSI colors (also auto-disabled when output is not a terminal). Has no effect on file output — that's always uncolored. |
 
 You must pass **either** a positional hash **or** `--file`, not both.
 
@@ -173,4 +185,3 @@ prefix rule in `rules.json` classifies its own sample correctly.
 - **Not exhaustive.** Hundreds of hash formats exist; this covers the common and
   pentest-relevant ones. Formats with no distinctive prefix or unique length
   (many 32-hex vendor hashes) are inherently ambiguous.
-```
