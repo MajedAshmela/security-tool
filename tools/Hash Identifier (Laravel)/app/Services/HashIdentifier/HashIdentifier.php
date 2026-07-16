@@ -69,6 +69,22 @@ final class HashIdentifier
     }
 
     /**
+     * Shape a candidate into the flat array the web view, JSON API, and CLI
+     * renderer all display: algorithm, confidence, hashcat mode, and reason.
+     *
+     * @return array{algorithm: string, confidence: string, mode: string, reason: string}
+     */
+    public function toRow(HashCandidate $candidate): array
+    {
+        return [
+            'algorithm' => $candidate->algorithm,
+            'confidence' => $candidate->confidence,
+            'mode' => $this->hashcatModeFor($candidate->algorithm),
+            'reason' => $candidate->reason,
+        ];
+    }
+
+    /**
      * Sort candidates by confidence, highest first (stable for equal ranks).
      *
      * @param  list<HashCandidate>  $candidates

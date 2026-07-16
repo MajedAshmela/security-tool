@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\IdentifyHashesRequest;
 use App\Services\HashIdentifier\HashIdentifier;
-use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 /**
@@ -24,28 +24,25 @@ final class HashIdentifierController extends Controller
         return view('hash-identifier', ['input' => '', 'groups' => null]);
     }
 
-    public function identify(Request $request, HashIdentifier $identifier): View
+    public function identify(IdentifyHashesRequest $request, HashIdentifier $identifier): View
     {
-        $input = (string) $request->input('hashes', '');
-
-        // One hash per non-blank line, whitespace stripped — the same rule the
-        // CLI applies when reading a --file.
-        $lines = preg_split('/\R/', $input) ?: [];
-        $hashes = array_values(array_filter(array_map('trim', $lines), fn (string $l): bool => $l !== ''));
+        // Only the pasted text is echoed back into the textarea; an uploaded
+        // file's lines are merged into $hashes but not redisplayed.
+        $input = (string) $request->validated('hashes', '');
+        $hashes = $request->allLines();
 
         $groups = array_map(function (string $hash) use ($identifier): array {
             $candidates = HashIdentifier::sortByConfidence($identifier->identify($hash));
-
-            $rows = array_map(fn ($c): array => [
-                'algorithm' => $c->algorithm,
-                'confidence' => $c->confidence,
-                'mode' => $identifier->hashcatModeFor($c->algorithm),
-                'reason' => $c->reason,
-            ], $candidates);
+            $rows = array_map($identifier->toRow(...), $candidates);
 
             return ['hash' => $hash, 'rows' => $rows];
         }, $hashes);
 
-        return view('hash-identifier', ['input' => $input, 'groups' => $groups]);
+        $summary = ['high' => 0, 'medium' => 0, 'low' => 0, 'unmatched' => 0];
+        foreach ($groups as $group) {
+            $summary[$group['rows'][0]['confidence'] ?? 'unmatched']++;
+        }
+
+        return view('hash-identifier', ['input' => $input, 'groups' => $groups, 'summary' => $summary]);
     }
 }

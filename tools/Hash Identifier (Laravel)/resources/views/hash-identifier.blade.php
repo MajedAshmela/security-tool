@@ -30,19 +30,32 @@
             border-radius: 8px; font-family: ui-monospace, Consolas, monospace; font-size: .9rem;
         }
         textarea:focus { outline: none; border-color: var(--accent); }
+        .file-label { margin-top: 1rem; }
+        input[type="file"] {
+            width: 100%; color: var(--muted); font-size: .85rem;
+            padding: .5rem 0;
+        }
         .actions { margin-top: .9rem; display: flex; gap: .75rem; align-items: center; }
+        .error { margin: .6rem 0 0; color: var(--low); font-size: .85rem; }
+        .summary { margin: 2rem 0 0; color: var(--muted); font-size: .9rem; display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
         button {
             background: var(--accent); color: #04101f; border: 0; border-radius: 8px;
             padding: .6rem 1.4rem; font-weight: 700; font-size: .95rem; cursor: pointer;
         }
         button:hover { filter: brightness(1.08); }
-        .results { margin-top: 2rem; }
+        .results { margin-top: 1rem; }
         .group { margin-bottom: 1.5rem; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
         .group-head {
             background: var(--panel-2); padding: .7rem .95rem; border-bottom: 1px solid var(--border);
             font-size: .85rem; color: var(--muted); word-break: break-all;
+            display: flex; align-items: center; justify-content: space-between; gap: .75rem;
         }
         .group-head .mono { color: var(--text); }
+        .copy-btn {
+            flex-shrink: 0; background: transparent; color: var(--muted); border: 1px solid var(--border);
+            border-radius: 6px; padding: .2rem .6rem; font-size: .75rem; font-weight: 600; cursor: pointer;
+        }
+        .copy-btn:hover { color: var(--text); border-color: var(--accent); }
         .table-scroll { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; font-size: .9rem; }
         th, td { text-align: left; padding: .6rem .95rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
@@ -73,13 +86,24 @@
             </p>
         </header>
 
-        <form method="POST" action="{{ route('hashes.identify') }}">
+        <form method="POST" action="{{ route('hashes.identify') }}" enctype="multipart/form-data">
             @csrf
             <label for="hashes">
                 Hash(es)
                 <span class="hint">&mdash; one per line for a batch</span>
             </label>
-            <textarea id="hashes" name="hashes" placeholder="5f4dcc3b5aa765d61d8327deb882cf99" autofocus>{{ $input }}</textarea>
+            <textarea id="hashes" name="hashes" placeholder="5f4dcc3b5aa765d61d8327deb882cf99" maxlength="{{ \App\Http\Requests\IdentifyHashesRequest::MAX_INPUT_LENGTH }}" autofocus>{{ $input }}</textarea>
+            @error('hashes')
+                <p class="error">{{ $message }}</p>
+            @enderror
+            <label for="file" class="file-label">
+                Or upload a file
+                <span class="hint">&mdash; one hash per line, merged with the text above</span>
+            </label>
+            <input type="file" id="file" name="file">
+            @error('file')
+                <p class="error">{{ $message }}</p>
+            @enderror
             <div class="actions">
                 <button type="submit">Identify</button>
             </div>
@@ -87,12 +111,24 @@
 
         @if (! is_null($groups))
             @if (count($groups) === 0)
-                <p class="empty">No hashes entered &mdash; paste at least one line above.</p>
+                <p class="empty">No hashes entered &mdash; paste at least one line or upload a file above.</p>
             @else
+                <p class="summary">
+                    {{ count($groups) }} hash{{ count($groups) === 1 ? '' : 'es' }} analyzed &mdash;
+                    <span class="badge high">{{ $summary['high'] }} high</span>
+                    <span class="badge medium">{{ $summary['medium'] }} medium</span>
+                    <span class="badge low">{{ $summary['low'] }} low</span>
+                    @if ($summary['unmatched'] > 0)
+                        <span class="mono">{{ $summary['unmatched'] }} unmatched</span>
+                    @endif
+                </p>
                 <section class="results">
                     @foreach ($groups as $group)
                         <div class="group">
-                            <div class="group-head">Hash: <span class="mono">{{ $group['hash'] }}</span></div>
+                            <div class="group-head">
+                                Hash: <span class="mono">{{ $group['hash'] }}</span>
+                                <button type="button" class="copy-btn" data-hash="{{ $group['hash'] }}">Copy</button>
+                            </div>
                             <div class="table-scroll">
                                 <table>
                                     <thead>
@@ -128,8 +164,20 @@
         <footer>
             Also available on the command line:
             <code>php artisan hash:identify &lt;hash&gt;</code> or
-            <code>php artisan hash:identify --file hashes.txt</code>.
+            <code>php artisan hash:identify --file hashes.txt</code> &mdash;
+            or as JSON: <code>POST /api/identify</code> with a <code>hashes</code> field.
         </footer>
     </div>
+    <script>
+        document.querySelectorAll('.copy-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                navigator.clipboard.writeText(btn.dataset.hash).then(() => {
+                    const original = btn.textContent;
+                    btn.textContent = 'Copied';
+                    setTimeout(() => { btn.textContent = original; }, 1200);
+                });
+            });
+        });
+    </script>
 </body>
 </html>
