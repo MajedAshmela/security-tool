@@ -69,6 +69,24 @@ def test_bcrypt_prefix_is_recognized():
     assert candidates[0].confidence == "high"
 
 
+def test_bcrypt_2y_variant_is_recognized():
+    """The older ``$2y$`` bcrypt variant is identified as bcrypt, not mistaken
+    for a different algorithm."""
+    sample = "$2y$12$R9h/cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW"
+    candidates = hash_identifier.identify(sample)
+    assert candidates[0].algorithm == "bcrypt"
+    assert candidates[0].confidence == "high"
+
+
+def test_yescrypt_prefix_is_recognized_and_not_confused_with_bcrypt():
+    """A ``$y$`` hash is yescrypt, a distinct KDF from bcrypt despite the
+    superficially similar ``$`` prefix style."""
+    sample = "$y$j9T$5RS9ML0kEsQzGgnFtQGiF0$3eNTsAdEfwF9SPZR6RQmYhV1234567890abcd"
+    candidates = hash_identifier.identify(sample)
+    assert candidates[0].algorithm == "yescrypt"
+    assert candidates[0].confidence == "high"
+
+
 def test_argon2id_prefix_is_recognized():
     """A real Argon2id PHC string is identified as Argon2id with high confidence."""
     sample = "$argon2id$v=19$m=65536,t=3,p=4$c29tZXNhbHQ$RdescudvJCsgt3ub+b+dWRWJTmaaJObG"

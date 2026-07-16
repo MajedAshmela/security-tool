@@ -118,11 +118,11 @@ structural identification, not a bug.
 
 ## Supported hash types
 
-- **Prefix-based (30 rules):** bcrypt (`$2a$`/`$2b$`/`$y$`), Argon2i/d/id, MD5/
-  SHA-256/SHA-512 crypt, Apache-MD5, PBKDF2 (SHA1/256/512), scrypt, phpass
-  (`$P$`/`$H$`), LDAP (`{SSHA}`/`{SHA}`), Kerberoast TGS (RC4/AES128/AES256),
-  AS-REP Roast, Django PBKDF2/SHA1, Drupal7, MSSQL, PostgreSQL-MD5, Cisco IOS
-  (`$8$`/`$9$`), Oracle 11g.
+- **Prefix-based (32 rules):** bcrypt (`$2a$`/`$2b$`/`$2x$`/`$2y$`), yescrypt
+  (`$y$`), Argon2i/d/id, MD5/SHA-256/SHA-512 crypt, Apache-MD5, PBKDF2
+  (SHA1/256/512), scrypt, phpass (`$P$`/`$H$`), LDAP (`{SSHA}`/`{SHA}`),
+  Kerberoast TGS (RC4/AES128/AES256), AS-REP Roast, Django PBKDF2/SHA1,
+  Drupal7, MSSQL, PostgreSQL-MD5, Cisco IOS (`$8$`/`$9$`), Oracle 11g.
 - **Special shapes (4):** NetNTLMv1, NetNTLMv2, MySQL5, DES-Crypt.
 - **Hex-length (18 algorithms across lengths 8/16/32/40/56/64/96/128):** CRC32,
   Adler32, MySQL323, MD5, NTLM, MD4, RIPEMD-128, LM, SHA-1, RIPEMD-160, SHA-224,

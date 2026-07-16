@@ -49,6 +49,22 @@ it('identifies bcrypt by prefix at high confidence', function () {
         ->and($result[0]->reason)->toContain("matched prefix '\$2b\$'");
 });
 
+it('identifies the older $2y$ bcrypt variant as bcrypt', function () {
+    $result = hashId()->identify('$2y$12$R9h/cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW');
+
+    expect($result)->toHaveCount(1)
+        ->and($result[0]->algorithm)->toBe('bcrypt')
+        ->and($result[0]->confidence)->toBe('high');
+});
+
+it('identifies yescrypt by its $y$ prefix, distinct from bcrypt', function () {
+    $result = hashId()->identify('$y$j9T$5RS9ML0kEsQzGgnFtQGiF0$3eNTsAdEfwF9SPZR6RQmYhV1234567890abcd');
+
+    expect($result)->toHaveCount(1)
+        ->and($result[0]->algorithm)->toBe('yescrypt')
+        ->and($result[0]->confidence)->toBe('high');
+});
+
 it('identifies Argon2id, Kerberoast and AS-REP by prefix', function () {
     expect(hashId()->identify('$argon2id$v=19$m=65536,t=3,p=4$c29tZXNhbHQ$aGFzaA')[0]->algorithm)->toBe('Argon2id');
     expect(hashId()->identify('$krb5tgs$23$*user$realm*$abcd1234')[0]->algorithm)->toBe('Kerberoast-TGS-RC4');

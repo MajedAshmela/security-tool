@@ -1,5 +1,6 @@
 $2a$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 $2b$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+$2y$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 $y$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 $argon2id$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 $argon2i$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa

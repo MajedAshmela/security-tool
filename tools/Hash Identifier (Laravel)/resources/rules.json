@@ -2,7 +2,9 @@
   "prefix_rules": {
     "$2a$": { "algorithm": "bcrypt", "confidence": "high", "min_length": 60 },
     "$2b$": { "algorithm": "bcrypt", "confidence": "high", "min_length": 60 },
-    "$y$": { "algorithm": "bcrypt", "confidence": "high", "min_length": 60 },
+    "$2x$": { "algorithm": "bcrypt", "confidence": "high", "min_length": 60 },
+    "$2y$": { "algorithm": "bcrypt", "confidence": "high", "min_length": 60 },
+    "$y$": { "algorithm": "yescrypt", "confidence": "high", "min_length": 20 },
     "$argon2id$": { "algorithm": "Argon2id", "confidence": "high", "min_length": 40 },
     "$argon2i$": { "algorithm": "Argon2i", "confidence": "high", "min_length": 40 },
     "$argon2d$": { "algorithm": "Argon2d", "confidence": "high", "min_length": 40 },
