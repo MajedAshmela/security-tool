@@ -13,6 +13,9 @@ A hands-on repository for learning cybersecurity by building security tools from
 ### hash-identifier
 Python CLI tool that identifies hash types (MD5, SHA family, bcrypt, NTLM, and more) using a data-driven rules engine (`rules.json`). See [`tools/Hash identifier/README.md`](<tools/Hash identifier/README.md>) for full documentation.
 
+### hash-identifier (Laravel)
+A Laravel port of the same tool, exposing the shared detection engine through both a web UI and an Artisan command (`php artisan hash:identify`). See [`tools/Hash Identifier (Laravel)/README.md`](<tools/Hash Identifier (Laravel)/README.md>) for full documentation.
+
 ## 🎯 Focus Areas
 
 - Blue Team / SOC fundamentals
