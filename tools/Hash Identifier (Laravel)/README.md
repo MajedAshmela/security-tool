@@ -8,14 +8,21 @@ only tells you *what kind* of hash you are looking at, which is the first step
 before feeding it to a cracker like hashcat or John the Ripper.
 
 The detection engine, rules, and confidence semantics are a faithful
-reimplementation of the Python tool. What Laravel adds is **two front-ends over
+reimplementation of the Python tool. What Laravel adds is **three front-ends over
 one shared engine**:
 
-- a **web UI** — paste one hash or a batch and get an HTML results table;
-- an **Artisan command** — `php artisan hash:identify`, mirroring the original CLI.
+- a **web UI** — paste one hash (or upload a file), one per line for a batch,
+  and get an HTML results table with a summary and per-hash copy buttons;
+- a **JSON API** — `POST /api/identify`, for scripts and other tools to integrate with;
+- an **Artisan command** — `php artisan hash:identify`, mirroring the original CLI,
+  with an additional `--stdin` input mode and `--format=json` output.
 
 Detection rules live in [`resources/rules.json`](resources/rules.json), so new
 algorithms can be added without touching any code.
+
+No database is required to run this tool — sessions, cache, and the queue all
+use non-DB drivers (see `.env`), and requests to `/identify` and
+`/api/identify` are rate-limited (`throttle:30,1`).
 
 ## Requirements
 
@@ -45,9 +52,40 @@ php artisan serve
 # then open http://127.0.0.1:8000
 ```
 
-Paste a single hash, or one hash per line for a batch, and submit. Each hash
-gets a table of ranked candidates with a color-coded confidence badge, the
-matching hashcat `-m` mode, and a short reason.
+Paste a single hash, or one hash per line for a batch, and submit — or upload
+a text file (one hash per line), merged with anything pasted. Each hash gets
+a table of ranked candidates with a color-coded confidence badge, the matching
+hashcat `-m` mode, and a short reason. Results start with a summary count of
+high/medium/low/unmatched, and each hash has a "Copy" button.
+
+Input is capped at 50,000 characters and 500 hashes per request (pasted text
+and uploaded file combined); an uploaded file is capped at 512 KB.
+
+### JSON API
+
+```bash
+curl -s -X POST http://127.0.0.1:8000/api/identify \
+  -H 'Accept: application/json' \
+  --data-urlencode 'hashes=5f4dcc3b5aa765d61d8327deb882cf99'
+```
+
+```json
+{
+  "results": [
+    {
+      "hash": "5f4dcc3b5aa765d61d8327deb882cf99",
+      "candidates": [
+        { "algorithm": "MD5", "confidence": "medium", "mode": "0", "reason": "hex length match" },
+        { "algorithm": "NTLM", "confidence": "low", "mode": "1000", "reason": "hex length match" }
+      ]
+    }
+  ]
+}
+```
+
+Accepts the same `hashes` (text) and `file` (upload) fields and limits as the
+web form, and returns a `422` with a standard Laravel validation-error body if
+those limits are exceeded.
 
 ### Command line
 
@@ -74,16 +112,32 @@ php artisan hash:identify --file sample-hashes.txt --output results.txt
 php artisan hash:identify '5f4dcc3b5aa765d61d8327deb882cf99' --output result.txt
 ```
 
+Pipe hashes in via `--stdin` (one per line) — like a single hash, this prints
+to the terminal unless `--output` is given:
+
+```bash
+cat sample-hashes.txt | php artisan hash:identify --stdin
+```
+
+Get machine-readable JSON instead of the table with `--format=json`, to either
+destination:
+
+```bash
+php artisan hash:identify '5f4dcc3b5aa765d61d8327deb882cf99' --format=json
+```
+
 #### Options
 
 | Argument / flag | Description |
 |-----------------|-------------|
 | `hash` | A single hash string to identify (positional). Prints to the terminal unless `--output` is given. |
 | `--file=PATH` | Read hashes from a text file, one per line. Blank lines ignored. Defaults to writing `result.txt` next to `PATH` instead of printing. |
-| `--output=PATH` | Write the results table to this file (UTF-8, uncolored) instead of the default destination for the input mode. |
-| `--no-color` | Disable ANSI colors (also auto-disabled when stdout is not a terminal). Has no effect on file output. |
+| `--stdin` | Read hashes (one per line) from standard input instead of a positional hash or `--file`. Opt-in — it never reads stdin unless explicitly passed, so the command can't hang waiting on an unredirected terminal. |
+| `--output=PATH` | Write the results to this file (UTF-8, uncolored) instead of the default destination for the input mode. |
+| `--format=table\|json` | Output format. Defaults to `table`. |
+| `--no-color` | Disable ANSI colors (also auto-disabled when stdout is not a terminal). Has no effect on file or JSON output. |
 
-You must pass **either** a positional hash **or** `--file`, not both.
+You must pass exactly **one** of: a positional hash, `--file`, or `--stdin`.
 
 #### Example output
 
@@ -142,12 +196,15 @@ missing algorithm name, or malformed JSON aborts with a clear
 php artisan test
 ```
 
-The Pest suite (33 tests) covers every detection path (prefix, special shapes,
+The Pest suite (52 tests) covers every detection path (prefix, special shapes,
 hex length, generic PHC, shape hints), the rules-file validation, the
 hashcat-mode lookup, confidence sorting, the Artisan command (single hash,
-`--file`, `--output`, and the usage errors), and the web routes (including HTML
-escaping of user input). It includes a data-driven test that verifies every
-prefix rule in `rules.json` classifies its own sample correctly.
+`--file`, `--stdin`, `--output`, `--format=json`, and the usage errors), the
+JSON API, and the web routes (file upload, input-size limits, throttling, and
+HTML escaping of user input). It includes a data-driven test that verifies
+every prefix rule in `rules.json` classifies its own sample correctly, plus a
+real subprocess test for `--stdin` (tagged `subprocess`, since it spawns an
+actual `php artisan` process with piped input).
 
 ## Where things live
 
@@ -159,6 +216,8 @@ prefix rule in `rules.json` classifies its own sample correctly.
 | [`app/Services/HashIdentifier/TableRenderer.php`](app/Services/HashIdentifier/TableRenderer.php) | Bordered console/file table renderer. |
 | [`app/Console/Commands/IdentifyHashCommand.php`](app/Console/Commands/IdentifyHashCommand.php) | The `hash:identify` Artisan command. |
 | [`app/Http/Controllers/HashIdentifierController.php`](app/Http/Controllers/HashIdentifierController.php) | Web controller. |
+| [`app/Http/Controllers/Api/HashIdentifierController.php`](app/Http/Controllers/Api/HashIdentifierController.php) | JSON API controller (`POST /api/identify`). |
+| [`app/Http/Requests/IdentifyHashesRequest.php`](app/Http/Requests/IdentifyHashesRequest.php) | Validates pasted text + uploaded file for both the web form and the API (size/line-count caps). |
 | [`resources/views/hash-identifier.blade.php`](resources/views/hash-identifier.blade.php) | Web UI. |
 | [`resources/rules.json`](resources/rules.json) | Detection rules. |
 | [`sample-hashes.txt`](sample-hashes.txt) | Example hashes for trying `--file`. |
